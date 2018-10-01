@@ -5,10 +5,6 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using std::vector;
 
-Tools::Tools() {}
-
-Tools::~Tools() {}
-
 VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
                               const vector<VectorXd> &ground_truth) {
   /**
@@ -47,8 +43,8 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 	return rmse;
 }
 
-  void Tools::from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv) {
-    float px, py, v, yaw, yaw_dot;
+void Tools::from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv) {
+	float px, py, v, yaw, yaw_dot;
 
 	float rho = from_polar(0);
 	float phi = from_polar(1);
@@ -62,10 +58,10 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 	yaw_dot = 0;
 
 	to_ctrv << px, py, v, yaw, yaw_dot;
-  }
+}
 
-  void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_ctrv) {
-    float px, py, v, yaw, yaw_dot;
+void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_ctrv) {
+	float px, py, v, yaw, yaw_dot;
 	px = from_cartesian(0);
 	py = from_cartesian(1);
 	v = to_ctrv(2);				// We retain the existing value
@@ -73,9 +69,9 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 	yaw_dot = to_ctrv(4);		// We retain the existing value
 
 	to_ctrv << px, py, v, yaw, yaw_dot;
-  }
+}
 
-  void Tools::from_ctrv_to_polar(const VectorXd &from_ctrv, VectorXd& to_polar) {
+void Tools::from_ctrv_to_polar(const VectorXd &from_ctrv, VectorXd& to_polar) {
 	double px = from_ctrv(0);
 	double py = from_ctrv(1);
 	double v = from_ctrv(2);
@@ -94,18 +90,18 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 		// Rho - dot
 		to_polar(2) = ((px * v * cos(psi) + py * v * sin(psi))/float(to_polar(0)));
 	}
-  }
+}
 
-  void Tools::from_ctrv_to_cartesian(const VectorXd &from_ctrv, VectorXd& to_cartesian) {
+void Tools::from_ctrv_to_cartesian(const VectorXd &from_ctrv, VectorXd& to_cartesian) {
     float px, py, v, yaw, yaw_dot;
 
-  }
+}
 
-  double Tools::normalize_angle(double angle) {
-		double normalized = angle;
-		while (normalized > M_PI)
-			normalized -= 2. * M_PI;      	// Normalize angle
-    while (normalized<-M_PI)
-      normalized += 2. * M_PI; 		// Normalize angle
-		return normalized;
-	}
+double Tools::normalize_angle(double angle) {
+	double normalized = angle;
+	while (normalized > M_PI)
+		normalized -= 2. * M_PI;      	// Normalize angle
+	while (normalized<-M_PI)
+		normalized += 2. * M_PI; 		// Normalize angle
+	return normalized;
+}
