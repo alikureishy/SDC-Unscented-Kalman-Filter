@@ -7,10 +7,6 @@ using std::vector;
 
 VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
                               const vector<VectorXd> &ground_truth) {
-  /**
-  TODO:
-    * Calculate the RMSE here.
-  */
   VectorXd rmse(4);
   rmse << 0, 0, 0, 0;
 
@@ -43,7 +39,14 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 	return rmse;
 }
 
+double Tools::determine_nis (VectorXd error, MatrixXd covariance) {
+	return (error.transpose() * covariance.inverse() * error)(0, 0);
+}
+
 void Tools::from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv) {
+	assert(to_ctrv.rows() == 5);
+	assert(from_polar.rows() == 3);
+
 	float px, py, v, yaw, yaw_dot;
 
 	float rho = from_polar(0);
@@ -61,7 +64,10 @@ void Tools::from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv) {
 }
 
 void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_ctrv) {
-	float px, py, v, yaw, yaw_dot;
+	assert(to_ctrv.rows() == 5);
+	assert(from_cartesian.rows() == 2);
+
+	double px, py, v, yaw, yaw_dot;
 	px = from_cartesian(0);
 	py = from_cartesian(1);
 	v = to_ctrv(2);				// We retain the existing value
@@ -71,30 +77,46 @@ void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_
 	to_ctrv << px, py, v, yaw, yaw_dot;
 }
 
-void Tools::from_ctrv_to_polar(const VectorXd &from_ctrv, VectorXd& to_polar) {
-	double px = from_ctrv(0);
-	double py = from_ctrv(1);
-	double v = from_ctrv(2);
-	double psi = from_ctrv(3);
-	double psi_dot = from_ctrv(4);
+void Tools::from_ctrvs_to_polars(const MatrixXd &from_ctrvs, MatrixXd& to_polars) {
+	assert(from_ctrvs.rows() == 5);
+	assert(to_polars.rows() == 3);
+	for(int i=0; i<from_ctrvs.cols(); ++i) {
+		double px = from_ctrvs.col(i)(0);
+		double py = from_ctrvs.col(i)(1);
+		double v = from_ctrvs.col(i)(2);
+		double psi = from_ctrvs.col(i)(3);
+		//double psi_dot = from_ctrv(4); // Not needed
 
-	if(px == 0 && py == 0) {
-		to_polar << 0, 0, 0;
-	} else {
-		// Rho
-		to_polar(0) = sqrt(pow(px, 2) + pow(py, 2));
+		if(px == 0 && py == 0) {
+			to_polars.col(i) << 0, 0, 0;
+		} else {
+			// Rho
+			to_polars.col(i)(0) = sqrt(pow(px, 2) + pow(py, 2));
 
-		// Phi
-		to_polar(1) = atan(py/float(px));
+			// Phi
+			to_polars.col(i)(1) = atan(py/float(px));
 
-		// Rho - dot
-		to_polar(2) = ((px * v * cos(psi) + py * v * sin(psi))/float(to_polar(0)));
+			// Rho - dot
+			to_polars.col(i)(2) = ((px * v * cos(psi) + py * v * sin(psi))/float(to_polars.col(i)(0)));
+		}
 	}
 }
 
-void Tools::from_ctrv_to_cartesian(const VectorXd &from_ctrv, VectorXd& to_cartesian) {
-    float px, py, v, yaw, yaw_dot;
+void Tools::from_ctrvs_to_cartesians(const MatrixXd &from_ctrvs, MatrixXd& to_cartesians) {
+	assert(from_ctrvs.rows() == 5);
+	assert(to_cartesians.rows() == 2);
 
+	for(int i=0; i<from_ctrvs.cols(); ++i) {
+
+		double px = from_ctrvs.col(i)(0);
+		double py = from_ctrvs.col(i)(1);
+
+		// x position
+		to_cartesians.col(i)(0) = px;
+
+		// y position
+		to_cartesians.col(i)(1) = py;
+	}
 }
 
 double Tools::normalize_angle(double angle) {
@@ -104,4 +126,13 @@ double Tools::normalize_angle(double angle) {
 	while (normalized<-M_PI)
 		normalized += 2. * M_PI; 		// Normalize angle
 	return normalized;
+}
+
+void Tools::calculate_mean(const MatrixXd& points, const VectorXd& weights, VectorXd& weighted_mean) {
+	assert(points.col(0).rows() == weighted_mean.rows());
+	assert(points.cols() == weights.rows());
+	weighted_mean.fill(0.0);
+	for (int i=0; i < points.cols(); i++) {
+    	weighted_mean = weighted_mean + weights(i) * points.col(i);
+  	}
 }

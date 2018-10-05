@@ -19,10 +19,11 @@ public:
    */
   static void from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv);
   static void from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_ctrv);
-  static void from_ctrv_to_polar(const VectorXd &from_ctrv, VectorXd& to_polar);
-  static void from_ctrv_to_cartesian(const VectorXd &from_ctrv, VectorXd& to_cartesian);
-
+  static void from_ctrvs_to_polars(const MatrixXd &from_ctrvs, MatrixXd& to_polars);
+  static void from_ctrvs_to_cartesians(const MatrixXd &from_ctrvs, MatrixXd& to_cartesians);
+  static double determine_nis (const VectorXd error, const MatrixXd covariance);
   static double normalize_angle(double angle);
+  static void calculate_mean(const MatrixXd &points, const VectorXd &weights, VectorXd &weighted_mean);
 
 private:
   /**

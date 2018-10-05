@@ -28,21 +28,25 @@ std::string hasData(std::string s) {
 
 int main()
 {
+  cout << "1" << endl;
   uWS::Hub h;
 
   // Create a Kalman Filter instance
+  cout << "1.1" << endl;
   UKF ukf (true   /*use laser*/,
            true   /*use radar*/);
 
+  cout << "1.2" << endl;
+
   // used to compute the RMSE later
-  Tools tools;
   vector<VectorXd> estimations;
   vector<VectorXd> ground_truth;
 
-  h.onMessage([&ukf,&tools,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  h.onMessage([&ukf,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
+    cout << "2" << endl;
 
     if (length && length > 2 && data[0] == '4' && data[1] == '2')
     {
@@ -107,16 +111,18 @@ int main()
     	  ground_truth.push_back(gt_values);
 
           //Call ProcessMeasurment(meas_package) for Kalman filter
-    	  ukf.ProcessMeasurement(meas_package);
+        cout << "2.1" << endl;
+    	  ukf.filter_cycle(meas_package);
+        cout << "2.2" << endl;
 
     	  //Push the current estimated x,y positon from the Kalman filter's state vector
 
     	  VectorXd estimate(4);
 
-    	  double p_x = ukf.get_state(0);
-    	  double p_y = ukf.get_state(1);
-    	  double v  = ukf.get_state(2);
-    	  double yaw = ukf.get_state(3);
+    	  double p_x = ukf.get_state()(0);
+    	  double p_y = ukf.get_state()(1);
+    	  double v  = ukf.get_state()(2);
+    	  double yaw = ukf.get_state()(3);
 
     	  double v1 = cos(yaw)*v;
     	  double v2 = sin(yaw)*v;
@@ -128,7 +134,8 @@ int main()
 
     	  estimations.push_back(estimate);
 
-    	  VectorXd RMSE = tools.CalculateRMSE(estimations, ground_truth);
+        cout << "2.3" << endl;
+    	  VectorXd RMSE = Tools::CalculateRMSE(estimations, ground_truth);
 
           json msgJson;
           msgJson["estimate_x"] = p_x;
