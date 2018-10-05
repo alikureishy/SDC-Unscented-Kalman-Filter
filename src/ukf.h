@@ -21,7 +21,7 @@ class UKF
     const int N_AUG              = 7;               // Augmented state dimension
     const int N_AUG_DIFF         = N_AUG - N_X;     // Difference in size between the augmented and original state
     const int N_SIGMA_PTS        = 2 * N_AUG + 1;   // # of sigma points to be created
-    const double LAMBDA          = 3 - (2 * N_X);   // Sigma point spreading parameter
+    const double LAMBDA          = 3 - N_X;         // Sigma point spreading parameter
     const int N_Z_LIDAR          = 2;               // Dimensionality of LIDAR measurement noise
     const double STD_LAS_PX      = 0.15;            // Laser measurement noise standard deviation position1 in m
     const double STD_LAS_PY      = 0.15;            // Laser measurement noise standard deviation position2 in m
@@ -29,8 +29,8 @@ class UKF
     const double STD_RAD_RHO     = 0.3;             // Radar measurement noise standard deviation radius in m
     const double STD_RAD_PHI     = 0.03;            // Radar measurement noise standard deviation angle in rad
     const double STD_RAD_RHO_DOT = 0.3;             // Radar measurement noise standard deviation radius change in m/s
-    const double STD_ACC         = 30;              // Process noise standard deviation longitudinal acceleration in m/s^2
-    const double STD_YAW_ACC     = 30;              // Process noise standard deviation yaw acceleration in rad/s^2
+    const double STD_ACC         = 0.5;              // Process noise standard deviation longitudinal acceleration in m/s^2
+    const double STD_YAW_ACC     = 0.55;              // Process noise standard deviation yaw acceleration in rad/s^2
 
   public:
     /**
@@ -42,7 +42,7 @@ class UKF
        * ProcessMeasurement
        * @param meas_package The latest measurement data of either radar or laser
        */
-    void filter_cycle(MeasurementPackage meas_package);
+    void filter_cycle(MeasurementPackage& meas_package);
 
     /**
        * State accessor

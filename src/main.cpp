@@ -28,17 +28,13 @@ std::string hasData(std::string s) {
 
 int main()
 {
-  cout << "1" << endl;
   uWS::Hub h;
 
   Tools tools;
 
   // Create a Kalman Filter instance
-  cout << "1.1" << endl;
-  UKF ukf (true   /*use laser*/,
+  UKF ukf (false   /*use laser*/,
            true   /*use radar*/);
-
-  cout << "1.2" << endl;
 
   // used to compute the RMSE later
   vector<VectorXd> estimations;
@@ -112,9 +108,7 @@ int main()
     	  ground_truth.push_back(gt_values);
 
           //Call ProcessMeasurment(meas_package) for Kalman filter
-        cout << "2.1" << endl;
     	  ukf.filter_cycle(meas_package);
-        cout << "2.2" << endl;
 
     	  //Push the current estimated x,y positon from the Kalman filter's state vector
 
@@ -135,8 +129,9 @@ int main()
 
     	  estimations.push_back(estimate);
 
-        cout << "2.3" << endl;
     	  VectorXd RMSE = tools.calculate_rmse(estimations, ground_truth);
+
+        cout << "\t\tRMSE = " << endl << RMSE << endl;
 
           json msgJson;
           msgJson["estimate_x"] = p_x;

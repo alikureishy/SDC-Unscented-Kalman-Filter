@@ -37,8 +37,6 @@ VectorXd Tools::calculate_rmse(const vector<VectorXd> &estimations,
 	//calculate the squared root
 	rmse = rmse.array().sqrt();
 
-    std::cout << rmse << std::endl;
-
     //return the result
 	return rmse;
 }
@@ -55,16 +53,21 @@ void Tools::from_polar_to_ctrv(const VectorXd &from_polar, VectorXd &to_ctrv) {
 
 	float rho = from_polar(0);
 	float phi = from_polar(1);
-	float rho_dot = from_polar(2); // rho_dot is the projection of the object's velocity v on the rho direction.
+	// float rho_dot = from_polar(2); // rho_dot is the projection of the object's velocity v on the rho direction.
 
 	// Translation:
 	px = rho * cos(phi);
 	py = rho * sin(phi);
-	v = rho_dot;
-	yaw = 0;
-	yaw_dot = 0;
+	v = 0; // rho_dot is dropped because this is CTRV
+	yaw = 0;	// CTRV
+	yaw_dot = 0;	// CTRV
 
 	to_ctrv << px, py, v, yaw, yaw_dot;
+
+	if(to_ctrv(0) == 0 && to_ctrv(1) == 0) {
+		to_ctrv(0) = 0.01;
+		to_ctrv(1) = 0.01;
+	}
 }
 
 void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_ctrv) {
@@ -74,11 +77,16 @@ void Tools::from_cartesian_to_ctrv(const VectorXd &from_cartesian, VectorXd &to_
 	double px, py, v, yaw, yaw_dot;
 	px = from_cartesian(0);
 	py = from_cartesian(1);
-	v = to_ctrv(2);				// We retain the existing value
-	yaw = to_ctrv(3);			// We retain the existing value
-	yaw_dot = to_ctrv(4);		// We retain the existing value
+	v = 0; // to_ctrv(2);				// We retain the existing value
+	yaw = 0; // to_ctrv(3);			// We retain the existing value
+	yaw_dot = 0; // to_ctrv(4);		// We retain the existing value
 
 	to_ctrv << px, py, v, yaw, yaw_dot;
+
+	if(to_ctrv(0) == 0 && to_ctrv(1) == 0) {
+		to_ctrv(0) = 0.01;
+		to_ctrv(1) = 0.01;
+	}
 }
 
 void Tools::from_ctrvs_to_polars(const MatrixXd &from_ctrvs, MatrixXd& to_polars) {
