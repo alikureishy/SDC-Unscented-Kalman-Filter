@@ -31,6 +31,8 @@ int main()
   cout << "1" << endl;
   uWS::Hub h;
 
+  Tools tools;
+
   // Create a Kalman Filter instance
   cout << "1.1" << endl;
   UKF ukf (true   /*use laser*/,
@@ -42,11 +44,10 @@ int main()
   vector<VectorXd> estimations;
   vector<VectorXd> ground_truth;
 
-  h.onMessage([&ukf,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
+  h.onMessage([&ukf,&tools,&estimations,&ground_truth](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length, uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
-    cout << "2" << endl;
 
     if (length && length > 2 && data[0] == '4' && data[1] == '2')
     {
@@ -135,7 +136,7 @@ int main()
     	  estimations.push_back(estimate);
 
         cout << "2.3" << endl;
-    	  VectorXd RMSE = Tools::CalculateRMSE(estimations, ground_truth);
+    	  VectorXd RMSE = tools.calculate_rmse(estimations, ground_truth);
 
           json msgJson;
           msgJson["estimate_x"] = p_x;

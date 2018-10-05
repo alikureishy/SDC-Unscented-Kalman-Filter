@@ -9,10 +9,11 @@ using namespace std;
 
 class Tools {
 public:
+  Tools();
   /**
   * A helper method to calculate RMSE.
   */
-  static VectorXd CalculateRMSE(const vector<VectorXd> &estimations, const vector<VectorXd> &ground_truth);
+  static VectorXd calculate_rmse(const vector<VectorXd> &estimations, const vector<VectorXd> &ground_truth);
 
   /**
    * Conversion functions from/to the coordinate systems to/from the CTRV state
@@ -29,7 +30,6 @@ private:
   /**
   * Disable the Constructor.
   */
-  Tools();
 };
 
 #endif /* TOOLS_H_ */

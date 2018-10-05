@@ -5,7 +5,9 @@ using Eigen::VectorXd;
 using Eigen::MatrixXd;
 using std::vector;
 
-VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
+Tools::Tools() {}
+
+VectorXd Tools::calculate_rmse(const vector<VectorXd> &estimations,
                               const vector<VectorXd> &ground_truth) {
   VectorXd rmse(4);
   rmse << 0, 0, 0, 0;
@@ -35,7 +37,9 @@ VectorXd Tools::CalculateRMSE(const vector<VectorXd> &estimations,
 	//calculate the squared root
 	rmse = rmse.array().sqrt();
 
-	//return the result
+    std::cout << rmse << std::endl;
+
+    //return the result
 	return rmse;
 }
 
@@ -123,7 +127,7 @@ double Tools::normalize_angle(double angle) {
 	double normalized = angle;
 	while (normalized > M_PI)
 		normalized -= 2. * M_PI;      	// Normalize angle
-	while (normalized<-M_PI)
+	while (normalized < -M_PI)
 		normalized += 2. * M_PI; 		// Normalize angle
 	return normalized;
 }
