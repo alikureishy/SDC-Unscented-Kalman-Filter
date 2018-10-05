@@ -40,6 +40,13 @@ UKF::UKF(bool use_laser, bool use_radar) {
   std::cout << "3.2" << std::endl;
 
   /*****************************************************************************
+  *  Initialize the measurement function for Lidar
+  ****************************************************************************/
+  this->H_lidar = MatrixXd(N_Z_LIDAR, N_X);
+	this->H_lidar << 1, 0, 0, 0, 0,
+				           0, 1, 0, 0, 0;
+
+  /*****************************************************************************
    *  Initialize the sigma_weights
    ****************************************************************************/
   this->sigma_weights = VectorXd(N_SIGMA_PTS);
@@ -96,12 +103,12 @@ void UKF::filter_cycle(MeasurementPackage measurement) {
       std::cout << "3.2" << std::endl;
       predict_state(this->x_, this->P_, this->sigma_weights, this->Q_, dt, x_sigma_post_points, this->x_, this->P_);
       std::cout << "3.2.1" << std::endl;
-      update_state(measurement, x_sigma_post_points, this->x_, this->P_, this->NIS_lidar_);
-    } else {
+      regular_update(measurement, this->H_lidar, this->R_lidar_, this->x_, this->P_, this->NIS_lidar_);
+    } else {  // Radar
       std::cout << "3.3" << std::endl;
       predict_state(this->x_, this->P_, this->sigma_weights, this->Q_, dt, x_sigma_post_points, this->x_, this->P_);
       std::cout << "3.4" << std::endl;
-      update_state(measurement, x_sigma_post_points, this->x_, this->P_, this->NIS_radar_);
+      unscented_update(measurement, x_sigma_post_points, this->x_, this->P_, this->NIS_radar_);
     }
   }
 
@@ -138,7 +145,8 @@ void UKF::predict_state(const VectorXd& state, const MatrixXd& covariance, const
   transform_sigma_points(x_sigma_pre_points, dt, x_sigma_post_points);
   std::cout << "4.2" << std::endl;
 
-  extract_mean_and_covariance(x_sigma_post_points, sigma_weights, predicted_state, predicted_covariance);
+  extract_mean(x_sigma_post_points, sigma_weights, predicted_state);
+  extract_state_covariance(x_sigma_post_points, sigma_weights, predicted_state, predicted_covariance);
   std::cout << "4.3" << std::endl;
 
   // predicted_covariance = predicted_covariance + process_noise;
@@ -148,59 +156,47 @@ void UKF::predict_state(const VectorXd& state, const MatrixXd& covariance, const
 /**
  *
  */
-void UKF::update_state(MeasurementPackage measurement, const MatrixXd& x_sigma_post_points, VectorXd& state, MatrixXd& covariance, double& nis) const {
-  /*****************************************************************************
-  *  Create placeholder variables
-  ****************************************************************************/
-    MatrixXd z_sigma_post_points;
-    VectorXd z_sigma_mean;
-    MatrixXd z_sigma_covariance;
-    MatrixXd x_z_cross_correlation;
-    MatrixXd kalman_gain;
-    std::cout << "6.0" << std::endl;
+void UKF::unscented_update(MeasurementPackage measurement, const MatrixXd& x_sigma_post_points, VectorXd& state, MatrixXd& covariance, double& nis) const {
+  assert (measurement.sensor_type_ == MeasurementPackage::RADAR);
 
-  /*****************************************************************************
-  *  Type-specific: Initialize matrices according to the measurement type, and translate
-  ****************************************************************************/
-  if (use_radar_ && (measurement.sensor_type_ == MeasurementPackage::RADAR)) {
-    std::cout << "6.1" << std::endl;
-    z_sigma_post_points = MatrixXd(N_Z_RADAR, N_SIGMA_PTS);
-    std::cout << "6.1.1" << std::endl;
-    z_sigma_mean = VectorXd(N_Z_RADAR);
-    std::cout << "6.1.2" << std::endl;
-    z_sigma_covariance = MatrixXd(N_Z_RADAR, N_Z_RADAR);
-    std::cout << "6.1.3" << std::endl;
-    x_z_cross_correlation = MatrixXd(N_X, N_Z_RADAR);
-    std::cout << "6.1.4" << std::endl;
-    kalman_gain = MatrixXd(N_X, N_Z_RADAR);
-    std::cout << "6.1.5" << std::endl;
-    Tools::from_ctrvs_to_polars(x_sigma_post_points, z_sigma_post_points);
-    std::cout << "6.2" << std::endl;
-  }
-  else if (use_laser_ && (measurement.sensor_type_ == MeasurementPackage::LASER)) {
-    std::cout << "6.3" << std::endl;
-    z_sigma_post_points = MatrixXd(N_Z_LIDAR, N_SIGMA_PTS);
-    z_sigma_mean = VectorXd(N_Z_LIDAR);
-    z_sigma_covariance = MatrixXd(N_Z_LIDAR, N_Z_LIDAR);
-    x_z_cross_correlation = MatrixXd(N_X, N_Z_LIDAR);
-    kalman_gain = MatrixXd(N_X, N_Z_LIDAR);
-    Tools::from_ctrvs_to_cartesians(x_sigma_post_points, z_sigma_post_points);
-    std::cout << "6.4" << std::endl;
-  }
+  MatrixXd z_sigma_post_points;
+  VectorXd z_sigma_mean;
+  MatrixXd z_sigma_covariance;
+  MatrixXd x_z_cross_correlation;
+  MatrixXd kalman_gain;
+  std::cout << "6.0" << std::endl;
 
-  /*****************************************************************************
-  *  Determine the measurement and covariance that the translated sigma points yield,
-  *  as the predicted measurement
-  ****************************************************************************/
-  std::cout << "6.3" << std::endl;
-  extract_mean_and_covariance(z_sigma_post_points, this->sigma_weights, z_sigma_mean, z_sigma_covariance);
+  z_sigma_post_points = MatrixXd(N_Z_RADAR, N_SIGMA_PTS);
+  std::cout << "6.1.1" << std::endl;
+  z_sigma_mean = VectorXd(N_Z_RADAR);
+  std::cout << "6.1.2" << std::endl;
+  z_sigma_covariance = MatrixXd(N_Z_RADAR, N_Z_RADAR);
+  std::cout << "6.1.3" << std::endl;
+  x_z_cross_correlation = MatrixXd(N_X, N_Z_RADAR);
+  std::cout << "6.1.4" << std::endl;
+  kalman_gain = MatrixXd(N_X, N_Z_RADAR);
+  std::cout << "6.1.5" << std::endl;
+  Tools::from_ctrvs_to_polars(x_sigma_post_points, z_sigma_post_points);
+  std::cout << "6.2" << std::endl;
 
-  /*****************************************************************************
-  *  Utilize the predicted and actual measurements to update the state
-  ****************************************************************************/
-  std::cout << "6.4" << std::endl;
-  kalmanize(measurement, z_sigma_post_points, x_sigma_post_points, this->sigma_weights, z_sigma_mean, z_sigma_covariance, state, covariance, x_z_cross_correlation, kalman_gain, nis);
+  // else if (use_laser_ && (measurement.sensor_type_ == MeasurementPackage::LASER)) {
+  //   std::cout << "6.3" << std::endl;
+  //   z_sigma_post_points = MatrixXd(N_Z_LIDAR, N_SIGMA_PTS);
+  //   z_sigma_mean = VectorXd(N_Z_LIDAR);
+  //   z_sigma_covariance = MatrixXd(N_Z_LIDAR, N_Z_LIDAR);
+  //   x_z_cross_correlation = MatrixXd(N_X, N_Z_LIDAR);
+  //   kalman_gain = MatrixXd(N_X, N_Z_LIDAR);
+  //   Tools::from_ctrvs_to_cartesians(x_sigma_post_points, z_sigma_post_points);
+  //   std::cout << "6.4" << std::endl;
+  // }
+
   std::cout << "6.5" << std::endl;
+  extract_mean(z_sigma_post_points, this->sigma_weights, z_sigma_mean);
+  extract_radar_covariance(z_sigma_post_points, this->sigma_weights, z_sigma_mean, z_sigma_covariance);
+
+  std::cout << "6.6" << std::endl;
+  unscented_kalmanize(measurement, z_sigma_post_points, x_sigma_post_points, this->sigma_weights, z_sigma_mean, z_sigma_covariance, state, covariance, x_z_cross_correlation, kalman_gain, nis);
+  std::cout << "6.7" << std::endl;
 }
 
 /**
@@ -271,9 +267,6 @@ void UKF::transform_sigma_points(const MatrixXd& sigma_pre_points, double dt, Ma
  *
  */
 VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const {
-  /*****************************************************************************
-  * For easy reference
-  ****************************************************************************/
   assert(aug_point.rows() == N_AUG);
   // double px = aug_point(0);
 	// double py = aug_point(1);
@@ -283,10 +276,7 @@ VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const 
 	double noise_acc = aug_point(5);
 	double noise_yaw_rate = aug_point(6);
 
-  /*****************************************************************************
-  * Calculate the increment of x over dt (integral of x' over dt)
-  *   Because X_next = X(sigma_points) + integral(X'dt) + Process_noise(Q)
-  ****************************************************************************/
+  // F-term:
 	VectorXd F_x_term(N_X);
 	F_x_term.fill(0.0);
 	if(psi_dot == 0) {
@@ -303,9 +293,7 @@ VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const 
 		F_x_term(4) = 0;
 	}
 
-  /*****************************************************************************
-  * Calculate the mean of the process noise, over dt
-  ****************************************************************************/
+  // Q-term:
 	VectorXd Q_term(N_X);
 	Q_term(0) = (1/2.0 * dt * dt * cos(psi) * noise_acc);
 	Q_term(1) = (1/2.0 * dt * dt * sin(psi) * noise_acc);
@@ -313,9 +301,7 @@ VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const 
 	Q_term(3) = (1/2.0 * dt * dt * noise_yaw_rate);
 	Q_term(4) = (noise_yaw_rate * dt);
 
-  /*****************************************************************************
-  * X_aug_next = X_aug(aug_point[0:5]) + F_x_term + Q_term
-  ****************************************************************************/
+  // X_aug_next = X_aug(aug_point[0:5]) + F_x_term + Q_term
   return aug_point.head(N_X) + F_x_term + Q_term;
 }
 
@@ -323,55 +309,64 @@ VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const 
  * Used to determine the mean and covariance of the given sigma points, regardless of
  * their dimensionality.
  */
-void UKF::extract_mean_and_covariance(const MatrixXd& sigma_points, const VectorXd& sigma_weights, VectorXd& mean, MatrixXd& covariance) const {
+void UKF::extract_mean(const MatrixXd& sigma_points, const VectorXd& sigma_weights, VectorXd& mean) const {
   std::cout << "7.1" << std::endl;
   assert(sigma_points.cols() == N_SIGMA_PTS);
-  assert(sigma_points.col(0).rows() == N_X);
-  assert((covariance.rows() == sigma_points.col(0).rows()) && (covariance.cols() == sigma_points.col(0).rows()));
-  assert ((sigma_weights.rows() == N_SIGMA_PTS) && (sigma_weights.cols() == 1));
+  assert(sigma_points.col(0).rows() == mean.rows());
+  assert (sigma_weights.rows() == N_SIGMA_PTS);
 
-  /*****************************************************************************
-   *  Calculate state (mean) of sigma points
-   ****************************************************************************/
+  // Mean:
   mean.fill(0.0);
   std::cout << "7.2" << std::endl;
   for(int i=0;i < sigma_points.cols(); i++) {
 	  mean += sigma_weights(i) * sigma_points.col(i);
 	}
   std::cout << "7.3" << std::endl;
+}
 
-  /*****************************************************************************
-   *  Calculate covariance of sigma points
-   ****************************************************************************/
-	covariance.fill(0.0);
+void UKF::extract_state_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, MatrixXd &covariance) const {
+  extract_covariance(sigma_post_points, sigma_weights, 3, mean, covariance);
+}
+
+void UKF::extract_radar_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, MatrixXd &covariance) const {
+  extract_covariance(sigma_post_points, sigma_weights, 1, mean, covariance);
+}
+
+void UKF::extract_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, int idx_of_angle, const VectorXd &mean, MatrixXd &covariance) const {
+  assert(sigma_post_points.cols() == N_SIGMA_PTS);
+  assert(sigma_post_points.col(0).rows() == mean.rows());
+  assert (covariance.rows() == sigma_post_points.col(0).rows());
+  assert (covariance.cols() == sigma_post_points.col(0).rows());
+  assert (sigma_weights.rows() == N_SIGMA_PTS);
+
+ 	covariance.fill(0.0);
   std::cout << "7.4" << std::endl;
-	for(int i=0;i < sigma_points.cols(); ++i) {
-		VectorXd diff_from_mean = sigma_points.col(i) - mean;
+	for(int i=0; i < sigma_post_points.cols(); i++) {
+		VectorXd diff_from_mean = sigma_post_points.col(i) - mean;
     std::cout << "7.4.1" << std::endl;
     std::cout << "diff_from_mean: " << diff_from_mean << std::endl;
-    diff_from_mean(3) = Tools::normalize_angle(diff_from_mean(3));
+    diff_from_mean(idx_of_angle) = Tools::normalize_angle(diff_from_mean(idx_of_angle));
     std::cout << "7.4.2" << std::endl;
     covariance += sigma_weights(i) * diff_from_mean * diff_from_mean.transpose() ;
     std::cout << "7.4.3" << std::endl;
 	}
   std::cout << "7.5" << std::endl;
 }
-
 //-----------------------------------------------------
 
 /**
  *
  */
-void UKF::kalmanize(const MeasurementPackage& measurement, const MatrixXd& z_sigma_post_points, const MatrixXd& x_sigma_post_points, const VectorXd& sigma_weights, const VectorXd& z_sigma_mean, const MatrixXd& z_sigma_covariance, VectorXd& x_mean, MatrixXd& x_covariance, MatrixXd& x_z_cross_correlation, MatrixXd& kalman_gain, double& nis) const {
+void UKF::unscented_kalmanize(const MeasurementPackage& measurement, const MatrixXd& z_sigma_post_points, const MatrixXd& x_sigma_post_points, const VectorXd& sigma_weights, const VectorXd& z_sigma_mean, const MatrixXd& z_sigma_covariance, VectorXd& x_mean, MatrixXd& x_covariance, MatrixXd& x_z_cross_correlation, MatrixXd& kalman_gain, double& nis) const {
 	// Calculate the cross-correlation matrix
 
 	x_z_cross_correlation.fill(0.0);
 	for(int i=0;i<N_SIGMA_PTS; ++i) {
+
 	  VectorXd x_sigma_diff = (x_sigma_post_points.col(i) - x_mean);
     x_sigma_diff(3) = Tools::normalize_angle(x_sigma_diff(3));
 
     VectorXd z_sigma_diff = z_sigma_post_points.col(i) - z_sigma_mean;
-
     z_sigma_diff(1) = Tools::normalize_angle(z_sigma_diff(1));
 
 		x_z_cross_correlation += (sigma_weights(i) * (x_sigma_diff * z_sigma_diff.transpose()));
@@ -389,4 +384,23 @@ void UKF::kalmanize(const MeasurementPackage& measurement, const MatrixXd& z_sig
 	x_covariance = x_covariance - kalman_gain * z_sigma_covariance * kalman_gain.transpose();
 
 	nis = z_diff.transpose() * z_sigma_covariance.transpose() * z_diff;
+}
+
+void UKF::regular_update(const MeasurementPackage& measurement, const MatrixXd& measurement_function, const MatrixXd& measurement_noise, VectorXd& state, MatrixXd& covariance, double& nis) const {
+  VectorXd z_pred = measurement_function * state;
+	VectorXd z = measurement.raw_measurements_;
+
+	VectorXd y = z - z_pred;
+	MatrixXd Ht = measurement_function.transpose();
+	MatrixXd S = measurement_function * covariance * Ht + measurement_noise;
+	MatrixXd Si = S.inverse();
+	MatrixXd PHt = covariance * Ht;
+	MatrixXd K = PHt * Si;
+
+	//new estimate
+	state = state + (K * y);
+	MatrixXd I = MatrixXd::Identity(x_.rows(), x_.rows());
+	covariance = (I - K * measurement_noise) * covariance;
+
+	nis = y.transpose() * Si * y;
 }
