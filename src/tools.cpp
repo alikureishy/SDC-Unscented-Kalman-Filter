@@ -96,20 +96,20 @@ void Tools::from_ctrvs_to_polars(const MatrixXd &from_ctrvs, MatrixXd& to_polars
 		double px = from_ctrvs.col(i)(0);
 		double py = from_ctrvs.col(i)(1);
 		double v = from_ctrvs.col(i)(2);
-		double psi = from_ctrvs.col(i)(3);
-		//double psi_dot = from_ctrv(4); // Not needed
+		double yaw = from_ctrvs.col(i)(3);
+		//double yaw_dot = from_ctrv(4); // Not needed
 
 		if(px == 0 && py == 0) {
 			to_polars.col(i) << 0, 0, 0;
 		} else {
 			// Rho
-			to_polars.col(i)(0) = sqrt(pow(px, 2) + pow(py, 2));
+			to_polars.col(i)(0) = sqrt(pow(px,2) + pow(py,2));
 
 			// Phi
-			to_polars.col(i)(1) = atan(py/float(px));
+			to_polars.col(i)(1) = atan2(py, px);
 
 			// Rho - dot
-			to_polars.col(i)(2) = ((px * v * cos(psi) + py * v * sin(psi))/float(to_polars.col(i)(0)));
+			to_polars.col(i)(2) = (((px * v * cos(yaw)) + (py * v * sin(yaw)))/float(to_polars.col(i)(0)));
 		}
 	}
 }

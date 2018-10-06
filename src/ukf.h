@@ -66,7 +66,7 @@ class UKF
     VectorXd transform_sigma_point(const VectorXd& sigma_pre_point, double dt) const;
     void extract_mean(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, VectorXd &mean) const;
     void extract_state_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, MatrixXd &covariance) const;
-    void extract_radar_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, MatrixXd &covariance) const;
+    void extract_radar_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, const MatrixXd& measurement_noise, MatrixXd &covariance) const;
     void extract_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, int idx_of_angle, const VectorXd &mean, MatrixXd &covariance) const;
     /**
      *  Process the update step, which includes:
@@ -75,11 +75,11 @@ class UKF
      * - Updating the state, covariance and noise matrices
      */
 
-    void unscented_update(MeasurementPackage measurement, const MatrixXd& x_sigma_post_points, VectorXd& state, MatrixXd& covariance, double& nis) const;
+    void unscented_update(MeasurementPackage measurement, const MatrixXd& x_sigma_post_points, const VectorXd& sigma_weights, const MatrixXd& measurement_noise, VectorXd& state, MatrixXd& covariance, double& nis, int& nis_counter) const;
     void predict_measurement(const MatrixXd& projected_sigma_points, const VectorXd& weights, VectorXd& predicted_reading, MatrixXd& predicted_reading_covariance) const;
-    void unscented_kalmanize(const MeasurementPackage& measurement, const MatrixXd& z_sigma_post_points, const MatrixXd& x_sigma_post_points, const VectorXd& sigma_weights, const VectorXd& z_sigma_mean, const MatrixXd& z_sigma_covariance, VectorXd& x_mean, MatrixXd& x_covariance, MatrixXd& x_z_cross_correlation, MatrixXd& kalman_gain, double& nis) const;
+    void unscented_kalmanize(const MeasurementPackage& measurement, const MatrixXd& z_sigma_post_points, const MatrixXd& x_sigma_post_points, const VectorXd& sigma_weights, const VectorXd& z_sigma_mean, const MatrixXd& z_sigma_covariance, VectorXd& x_mean, MatrixXd& x_covariance, MatrixXd& x_z_cross_correlation, MatrixXd& kalman_gain, double& nis, int& nis_counter) const;
 
-    void regular_update(const MeasurementPackage& measurement, const MatrixXd& measurement_function, const MatrixXd& measurement_noise, VectorXd& state, MatrixXd& covariance, double& nis) const;
+    void regular_update(const MeasurementPackage& measurement, const MatrixXd& measurement_function, const MatrixXd& measurement_noise, VectorXd& state, MatrixXd& covariance, double& nis, int& nis_counter) const;
 
     /**
        * Updates the state and the state covariance matrix using a radar measurement
@@ -118,11 +118,14 @@ class UKF
     MatrixXd R_radar_;
     MatrixXd R_lidar_;
 
+  public:
     ///* the current NIS for radar
     double NIS_radar_ = 0.0;
+    int NIS_radar_counter = 0;
 
     ///* the current NIS for laser
     double NIS_lidar_ = 0.0;
+    int NIS_lidar_counter = 0;
 
 };
 
