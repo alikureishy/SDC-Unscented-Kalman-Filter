@@ -18,6 +18,7 @@ using std::vector;
 UKF::UKF(bool use_laser, bool use_radar) {
   use_laser_ = use_laser; // if this is false, laser measurements will be ignored (except during init)
   use_radar_ = use_radar; // if this is false, radar measurements will be ignored (except during init)
+  is_initialized_ = false;
 
   /*****************************************************************************
    *  Initialize covariance matrix
@@ -74,7 +75,7 @@ const VectorXd& UKF::get_state() const {
  * either radar or laser.
  */
 void UKF::filter_cycle(MeasurementPackage& measurement) {
-  float dt = (measurement.timestamp_ - previous_timestamp) / 1000000.0;	//dt - expressed in seconds
+  float dt = float(measurement.timestamp_ - previous_timestamp) / 1000000.0;	//dt - expressed in seconds
 
   if ((measurement.sensor_type_ == MeasurementPackage::LASER) && (use_laser_ == false)) {
     return;
@@ -82,16 +83,17 @@ void UKF::filter_cycle(MeasurementPackage& measurement) {
   if ((measurement.sensor_type_ == MeasurementPackage::RADAR) && (use_radar_ == false)) {
     return;
   }
-  cout << "-----------------------------------------" << endl;
-  cout << "\t\t~~ " << (measurement.sensor_type_ == MeasurementPackage::LASER ? "Laser ~~" : "Radar ~~") << endl << measurement.raw_measurements_ << endl;
+    cout << "----------------------------------------------------------" << endl;
 
   if (!is_initialized_) {
+    cout << "\t\t~~ " << (measurement.sensor_type_ == MeasurementPackage::LASER ? "Laser (init-time=" : "Radar (init-time=") << measurement.timestamp_ << "s)~~ " << endl << measurement.raw_measurements_ << endl;
     /*****************************************************************************
      *  Initialization
      ****************************************************************************/
-    initialize(measurement, dt);
+    initialize(measurement);
   }
   else  {
+    cout << "\t\t~~ " << (measurement.sensor_type_ == MeasurementPackage::LASER ? "Laser (dt=" : "Radar (dt=") << dt << "s)~~ " << endl << measurement.raw_measurements_ << endl;
     /*****************************************************************************
      *  Predict + Update cycle
      ****************************************************************************/
@@ -139,7 +141,7 @@ void UKF::filter_cycle(MeasurementPackage& measurement) {
 /**
  * Initialize the state using the first measurement
  */
-void UKF::initialize(MeasurementPackage measurement, double dt) {
+void UKF::initialize(MeasurementPackage measurement) {
   if (measurement.sensor_type_ == MeasurementPackage::RADAR) {
     Tools::from_polar_to_ctrv(measurement.raw_measurements_, this->x_);
   }
@@ -194,12 +196,8 @@ void UKF::generate_sigma_points(const MatrixXd& state, const MatrixXd& covarianc
   // Create initial Augmented covariance matrix P_aug, from P
 	MatrixXd P_aug = MatrixXd::Zero(N_AUG, N_AUG);
 	P_aug.topLeftCorner(N_X, N_X) = covariance;
-  P_aug(5,5) = STD_ACC*STD_ACC;
-  P_aug(6,6) = STD_YAW_ACC*STD_YAW_ACC;
+  P_aug.bottomRightCorner(N_AUG_DIFF, N_AUG_DIFF) << this->Q_;
   cout << "\t\tP_Aug = " << endl << P_aug << endl;
-
-  // Append the noise covariance (Q_) to the bottom-right corner of P_aug
-  // TODO: P_aug.bottomRightCorner(2, 2) << this->Q_; ???^^^
 
   // Create sq-rt matrix A for use with sigma point calculations
 	MatrixXd A = P_aug.llt().matrixL();
@@ -220,55 +218,60 @@ void UKF::generate_sigma_points(const MatrixXd& state, const MatrixXd& covarianc
 }
 
 /**
- *
+ * This implements the non-linear transformation of the motion model, after dt timesteps, for each of
+ * the sigma points provided
  */
 void UKF::transform_sigma_points(const MatrixXd& sigma_pre_points, double dt, MatrixXd& sigma_post_points) const {
   assert (sigma_pre_points.cols() == N_SIGMA_PTS);
+  assert (sigma_post_points.cols() == N_SIGMA_PTS);
+
+  MatrixXd F_x_terms = MatrixXd::Zero(N_X, N_SIGMA_PTS);
+  MatrixXd Q_terms = MatrixXd::Zero(N_X, N_SIGMA_PTS);
+
   for (int i = 0; i < N_SIGMA_PTS; i++) {
-    VectorXd new_point = transform_sigma_point(sigma_pre_points.col(i), dt);
-    assert (new_point.rows() == N_X); // Should be [N_X]
-    sigma_post_points.col(i) << new_point;
+    VectorXd sigma_pre_point = sigma_pre_points.col(i);
+    assert (sigma_pre_point.rows() == N_AUG);
+    assert (sigma_post_points.col(i).rows() == N_X);
+
+    // double px = sigma_pre_point(0);
+    // double py = sigma_pre_point(1);
+    double v = sigma_pre_point(2);
+    double yaw = sigma_pre_point(3);
+    double yaw_dot = sigma_pre_point(4);
+    double noise_acc = sigma_pre_point(5);
+    double noise_yaw_rate = sigma_pre_point(6);
+
+    // F-term:
+    VectorXd F_x_term = VectorXd::Zero(N_X);
+    if(yaw_dot == 0) {
+      F_x_term(0) = (v * cos(yaw) * dt);
+      F_x_term(1) = (v * sin(yaw) * dt);
+    } else {
+      F_x_term(0) = (v/yaw_dot) * (sin(yaw + yaw_dot * dt) - sin(yaw));
+      F_x_term(1) = (v/yaw_dot) * (-cos(yaw + yaw_dot * dt) + cos(yaw));
+    }
+    F_x_term(2) = 0;
+    F_x_term(3) = (yaw_dot * dt);
+    F_x_term(4) = 0;
+    F_x_terms.col(i) << F_x_term; // Append to list
+
+    // Q-term:
+    VectorXd Q_term(N_X);
+    Q_term(0) = 0.5 * dt * dt * cos(yaw) * noise_acc;
+    Q_term(1) = 0.5 * dt * dt * sin(yaw) * noise_acc;
+    Q_term(2) = (noise_acc * dt);
+    Q_term(3) = 0.5 * dt * dt * noise_yaw_rate;
+    Q_term(4) = noise_yaw_rate * dt;
+    Q_terms.col(i) << Q_term;
+
+    // X_aug_next = X_aug(aug_point[0:5]) + F_x_term + Q_term
+    sigma_post_points.col(i) << (sigma_pre_point.head(N_X) + F_x_term + Q_term);
   }
+  cout << "\t\tF_x_term_list = " << endl << F_x_terms << endl;
+  cout << "\t\tQ_term_list = " << endl << Q_terms << endl;
+
 }
 
-/**
- *
- */
-VectorXd UKF::transform_sigma_point(const VectorXd& aug_point, double dt) const {
-  assert(aug_point.rows() == N_AUG);
-  // double px = aug_point(0);
-	// double py = aug_point(1);
-	double v = aug_point(2);
-	double yaw = aug_point(3);
-	double yaw_dot = aug_point(4);
-	double noise_acc = aug_point(5);
-	double noise_yaw_rate = aug_point(6);
-
-  // F-term:
-	VectorXd F_x_term(N_X);
-	F_x_term.fill(0.0);
-	if(yaw_dot == 0) {
-		F_x_term(0) = (v * cos(yaw) * dt);
-		F_x_term(1) = (v * sin(yaw) * dt);
-  } else {
-		F_x_term(0) = (v/(float)yaw_dot * (sin(yaw + yaw_dot * dt) - sin(yaw)));
-		F_x_term(1) = (v/(float)yaw_dot * (-cos(yaw + yaw_dot * dt) + cos(yaw)));
-	}
-  F_x_term(2) = 0;
-  F_x_term(3) = (yaw_dot * dt);
-  F_x_term(4) = 0;
-
-  // Q-term:
-	VectorXd Q_term(N_X);
-	Q_term(0) = (1/2.0 * dt * dt * cos(yaw) * noise_acc);
-	Q_term(1) = (1/2.0 * dt * dt * sin(yaw) * noise_acc);
-	Q_term(2) = (noise_acc * dt);
-	Q_term(3) = (1/2.0 * dt * dt * noise_yaw_rate);
-	Q_term(4) = (noise_yaw_rate * dt);
-
-  // X_aug_next = X_aug(aug_point[0:5]) + F_x_term + Q_term
-  return aug_point.head(N_X) + F_x_term + Q_term;
-}
 
 /**
  * Used to determine the mean and covariance of the given sigma points, regardless of
@@ -320,10 +323,10 @@ void UKF::unscented_kalmanize(const MeasurementPackage& measurement, const Matri
 	for(int i=0;i<N_SIGMA_PTS; ++i) {
 
 	  VectorXd x_sigma_diff = (x_sigma_post_points.col(i) - x_mean);
-    x_sigma_diff(3) = Tools::normalize_angle(x_sigma_diff(3));
+    x_sigma_diff(3) = fmod(x_sigma_diff(3), 2*M_PI);
 
     VectorXd z_sigma_diff = z_sigma_post_points.col(i) - z_sigma_mean;
-    z_sigma_diff(1) = Tools::normalize_angle(z_sigma_diff(1));
+    z_sigma_diff(1) = fmod(z_sigma_diff(1), 2*M_PI);
 
 		x_z_cross_correlation += (sigma_weights(i) * (x_sigma_diff * z_sigma_diff.transpose()));
 	}
@@ -333,7 +336,7 @@ void UKF::unscented_kalmanize(const MeasurementPackage& measurement, const Matri
 	//residual
 	VectorXd z = measurement.raw_measurements_;
 	VectorXd z_diff = z - z_sigma_mean;
-  z_diff(1) = Tools::normalize_angle(z_diff(1));
+  z_diff(1) = fmod(z_diff(1), 2*M_PI);
 
   //update state mean and covariance matrix
 	x_mean = x_mean + kalman_gain * (z_diff);

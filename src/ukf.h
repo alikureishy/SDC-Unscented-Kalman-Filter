@@ -53,7 +53,7 @@ class UKF
     /**
        * Initialize initializes the state and covariance matrices
        */
-    void initialize(MeasurementPackage measurement, double dt);
+    void initialize(MeasurementPackage measurement);
 
     /**
        * Predict Predicts sigma points, the state, and the state covariance
@@ -63,7 +63,6 @@ class UKF
     void predict_state(const VectorXd& state, const MatrixXd& covariance, const VectorXd& sigma_weights, const MatrixXd& process_noise, double dt, MatrixXd& x_sigma_post_points, VectorXd& predicted_state, MatrixXd& predict_covariance) const;
     void generate_sigma_points(const MatrixXd& state, const MatrixXd& covariance, MatrixXd& sigma_pre_points) const;
     void transform_sigma_points(const MatrixXd& sigma_pre_points, double dt, MatrixXd& sigma_post_points) const;
-    VectorXd transform_sigma_point(const VectorXd& sigma_pre_point, double dt) const;
     void extract_mean(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, VectorXd &mean) const;
     void extract_state_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, MatrixXd &covariance) const;
     void extract_radar_covariance(const MatrixXd &sigma_post_points, const VectorXd& sigma_weights, const VectorXd &mean, const MatrixXd& measurement_noise, MatrixXd &covariance) const;
