@@ -95,3 +95,8 @@ A well written README file can enhance your project and portfolio.  Develop your
 ```
 ./UnscentedKF <path-to-input-file> <path-to-output-file>
 ```
+
+Specifically:
+```
+./UnscentedKF ../data/obj_pose-laser-radar-synthetic-input.txt output.txt
+```
