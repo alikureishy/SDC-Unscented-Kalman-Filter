@@ -1,4 +1,9 @@
-
+/**
+ * Main.cpp has been inspired from:
+ * https://github.com/da-phil/SDC-Unscented-Kalman-Filter/blob/master/src/main.cpp
+ *
+ * All other files in this folder were independently implemented.
+ */
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -226,10 +231,9 @@ int main(int argc, char* argv[]) {
     estimations.push_back(ukf_x_cartesian_);
     ground_truth.push_back(gt_pack_list[k].gt_values_);
 
+    // compute the accuracy (RMSE)
+    cout << "RMSE:" << endl << Tools::calculate_rmse(estimations, ground_truth) << endl;
   }
-
-  // compute the accuracy (RMSE)
-  cout << "Accuracy - RMSE:" << endl << Tools::calculate_rmse(estimations, ground_truth) << endl;
 
   // close files
   if (out_file_.is_open()) {
